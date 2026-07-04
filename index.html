@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="robots" content="noindex, nofollow">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Relatório SmartAcqua – Power BI</title>
 
   <!-- Google tag (gtag.js) -->
@@ -16,31 +16,174 @@
   </script>
 
   <style>
+    :root {
+      --header-h: 56px;
+    }
+    * { box-sizing: border-box; }
     body {
       margin: 0;
       background-color: #f4f4f4;
       font-family: Arial, sans-serif;
     }
     header {
+      position: relative;
       background: #0078D4;
       color: white;
-      padding: 15px;
+      height: var(--header-h);
+      padding: 0 56px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       text-align: center;
-      font-size: 1.3rem;
+      font-size: 1.15rem;
       font-weight: 600;
+    }
+    /* Botão de tela cheia */
+    #fullscreen-btn {
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 38px;
+      height: 38px;
+      border: none;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.18);
+      color: white;
+      font-size: 1.2rem;
+      line-height: 1;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #fullscreen-btn:hover { background: rgba(255, 255, 255, 0.30); }
+
+    /* Área do relatório */
+    .report {
+      position: relative;
+      width: 100%;
+      height: calc(100dvh - var(--header-h));
     }
     iframe {
       display: block;
       width: 100%;
-      height: 90vh;
+      height: 100%;
       border: none;
     }
+
+    /* Overlay de carregamento e erro */
+    .overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      background: #f4f4f4;
+      color: #333;
+      text-align: center;
+      padding: 24px;
+    }
+    .overlay[hidden] { display: none; }
+    .spinner {
+      width: 46px;
+      height: 46px;
+      border: 5px solid #d5e6f7;
+      border-top-color: #0078D4;
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .overlay p { margin: 0; font-size: 1rem; }
+    #retry-btn {
+      border: none;
+      background: #0078D4;
+      color: white;
+      font-size: 1rem;
+      font-weight: 600;
+      padding: 12px 22px;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    #retry-btn:hover { background: #0063ad; }
   </style>
 </head>
 <body>
 
-  <iframe src="https://app.powerbi.com/view?r=eyJrIjoiYjAyYzM0Y2YtNTdhZS00Y2I2LTllNGYtNjc5NjMyMGM4OGNlIiwidCI6IjVmYzFkNWM5LWI0ZTEtNDk1OS04N2FmLWZmYzM3ZDA1N2QwYSIsImMiOjZ9"
-          allowfullscreen="true">
-  </iframe>
+  <header>
+    Relatório SmartAcqua
+    <button id="fullscreen-btn" type="button" aria-label="Tela cheia" title="Tela cheia">⛶</button>
+  </header>
+
+  <div class="report" id="report">
+    <iframe id="report-frame"
+            title="Relatório SmartAcqua no Power BI"
+            src="https://app.powerbi.com/view?r=eyJrIjoiYjAyYzM0Y2YtNTdhZS00Y2I2LTllNGYtNjc5NjMyMGM4OGNlIiwidCI6IjVmYzFkNWM5LWI0ZTEtNDk1OS04N2FmLWZmYzM3ZDA1N2QwYSIsImMiOjZ9"
+            allowfullscreen="true">
+    </iframe>
+
+    <!-- Carregando -->
+    <div class="overlay" id="loading-overlay">
+      <div class="spinner" role="status" aria-label="Carregando"></div>
+      <p>Carregando o relatório…</p>
+    </div>
+
+    <!-- Erro -->
+    <div class="overlay" id="error-overlay" hidden>
+      <p>Não foi possível carregar o relatório.<br>Verifique sua conexão e tente novamente.</p>
+      <button id="retry-btn" type="button">Tentar novamente</button>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var frame = document.getElementById('report-frame');
+      var report = document.getElementById('report');
+      var loading = document.getElementById('loading-overlay');
+      var errorOv = document.getElementById('error-overlay');
+      var fsBtn = document.getElementById('fullscreen-btn');
+      var retryBtn = document.getElementById('retry-btn');
+      var timeoutId;
+
+      function showLoading() {
+        errorOv.hidden = true;
+        loading.hidden = false;
+        clearTimeout(timeoutId);
+        // Se o relatório não carregar em 15s, mostra o fallback de erro.
+        timeoutId = setTimeout(showError, 15000);
+      }
+      function showError() {
+        clearTimeout(timeoutId);
+        loading.hidden = true;
+        errorOv.hidden = false;
+      }
+
+      frame.addEventListener('load', function () {
+        clearTimeout(timeoutId);
+        loading.hidden = true;
+        errorOv.hidden = true;
+      });
+
+      retryBtn.addEventListener('click', function () {
+        showLoading();
+        // Recarrega o iframe reatribuindo o src.
+        frame.src = frame.src;
+      });
+
+      fsBtn.addEventListener('click', function () {
+        var target = report;
+        var req = target.requestFullscreen || target.webkitRequestFullscreen || target.msRequestFullscreen;
+        if (req) {
+          req.call(target);
+          if (window.gtag) { gtag('event', 'fullscreen_report'); }
+        }
+      });
+
+      // Inicia o timeout de carregamento assim que a página abre.
+      showLoading();
+    })();
+  </script>
 </body>
 </html>
